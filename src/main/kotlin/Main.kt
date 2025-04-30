@@ -218,8 +218,13 @@ fun DeviceItem(
                     text = "DCC: ${device.dccCode} | Speed: ${device.speed} | Dir: ${device.direction}",
                     fontSize = 12.sp,
                     color = Color.Gray
+                )}
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = device.address,                    fontSize = 12.sp,
+                    color = Color.Gray
                 )
-            }
+
         }
     }
 }

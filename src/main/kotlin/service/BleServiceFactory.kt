@@ -9,7 +9,7 @@ object BleServiceFactory {
      * @param useSimulation Whether to use a simulated BLE service or a real one
      * @return An implementation of IBleService
      */
-    fun createBleService(useSimulation: Boolean = false): IBleService {
+    fun createBleService(useSimulation: Boolean = true): IBleService {
         return if (useSimulation) {
             // Use simulated BLE service
             BleService()

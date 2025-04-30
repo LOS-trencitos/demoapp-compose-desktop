@@ -2,7 +2,6 @@ package service
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,11 +10,50 @@ import kotlinx.coroutines.launch
 import model.BleConstants
 import model.BleDevice
 import org.simplejavable.Adapter
+import org.simplejavable.BluetoothUUID
 import org.simplejavable.Peripheral
-import org.simplejavable.SimpleBleFactory
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.UUID
+import java.util.*
+import java.util.function.Function
+import kotlin.collections.set
+import kotlin.text.contains
+
+
+class SimpleBleFactory {
+
+    fun getAdapters(): List<Adapter> {
+        return Adapter.getAdapters()
+    }
+
+    fun getAdapter(): Optional<Adapter?> {
+        // if (!Adapter.isBluetoothEnabled()) {
+        //     System.out.println("Bluetooth is not enabled!");
+        //     return Optional.empty();
+        // }
+
+        val adapterList = Adapter.getAdapters()
+
+        if (adapterList.isEmpty()) {
+            System.err.println("No adapter was found.")
+            return Optional.empty<Adapter?>() as Optional<Adapter?>
+        }
+
+        if (adapterList.size == 1) {
+            val adapter = adapterList.get(0)
+            println("Using adapter: " + adapter.getIdentifier() + " [" + adapter.getAddress() + "]")
+            return Optional.of<Adapter?>(adapter) as Optional<Adapter?>
+        }
+
+        println("Available adapters:")
+        for (i in adapterList.indices) {
+            val adapter = adapterList.get(i)
+            println("[" + i + "] " + adapter.getIdentifier() + " [" + adapter.getAddress() + "]")
+        }
+        val adapter =  adapterList.get(0)
+        return Optional.of<Adapter?>(adapter) as Optional<Adapter?>
+    }
+}
 
 /**
  * Real BLE service implementation using SimpleJavaBLE
@@ -45,6 +83,8 @@ class RealBleService : IBleService {
     
     init {
         // Initialize the BLE adapter
+
+
         val adapters = factory.getAdapters()
         adapter = if (adapters.isNotEmpty()) adapters[0] else null
         
@@ -54,34 +94,43 @@ class RealBleService : IBleService {
             println("Using BLE adapter: " + adapter.getIdentifier())
         }
     }
-    
-    /**
-     * Start scanning for BLE devices with the specified service UUID
-     */
-    override fun startScanning() {
-        if (adapter == null) return
-        
-        // Set up scan callback
-        adapter.setScanCallback { peripheral ->
+
+    inner class scanCallbacks: Adapter.EventListener{
+        override fun onScanStart() {
+            //TODO("Not yet implemented")
+        }
+
+        override fun onScanStop() {
+            //TODO("Not yet implemented")
+        }
+
+        override fun onScanUpdated(peripheral: Peripheral?) {
+            //TODO("Not yet implemented")
+        }
+
+        override fun onScanFound(peripheral: Peripheral) {
             // Check if the peripheral has the required service
+            if (peripheral == null) {return}
             val services = peripheral.services()
-            if (services.contains(BleConstants.SERVICE_UUID.toString())) {
-                val address = peripheral.address()
-                val name = peripheral.identifier()
-                
+            if (services.stream().anyMatch { it.uuid() == BleConstants.SERVICE_UUID.toString() })
+             {
+                val address = peripheral.getAddress()
+                 val addressStr = address.toString()
+                val name = peripheral.getIdentifier()
+
                 // Create a BleDevice object
                 val device = BleDevice(
-                    address = address,
+                    address = addressStr,
                     shortName = name.take(8), // Limit to 8 bytes
                     isBonded = false
                 )
-                
+
                 // Store the peripheral
-                peripherals[address] = peripheral
-                
+                peripherals[address.toString()] = peripheral
+
                 // Update device lists
                 val currentDevices = _unbondedDevices.value.toMutableList()
-                val existingIndex = currentDevices.indexOfFirst { it.address == address }
+                val existingIndex = currentDevices.indexOfFirst { it.address == addressStr }
                 if (existingIndex >= 0) {
                     currentDevices[existingIndex] = device
                 } else {
@@ -90,6 +139,18 @@ class RealBleService : IBleService {
                 _unbondedDevices.value = currentDevices.sortedBy { it.shortName }
             }
         }
+
+    }
+
+
+    /**
+     * Start scanning for BLE devices with the specified service UUID
+     */
+    override fun startScanning() {
+        if (adapter == null) return
+        
+        // Set up scan callback
+        adapter.setEventListener(scanCallbacks())
         
         // Start scanning
         coroutineScope.launch {
@@ -105,7 +166,7 @@ class RealBleService : IBleService {
      * Stop scanning for BLE devices
      */
     override fun stopScanning() {
-        adapter?.stopScan()
+        adapter?.scanStop()
     }
     
     /**
@@ -173,8 +234,8 @@ class RealBleService : IBleService {
         try {
             // Read long name
             val longNameBytes = peripheral.read(
-                BleConstants.SERVICE_UUID.toString(),
-                BleConstants.LONG_NAME_CHARACTERISTIC_UUID.toString()
+                BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                BluetoothUUID(BleConstants.LONG_NAME_CHARACTERISTIC_UUID.toString())
             )
             if (longNameBytes.isNotEmpty()) {
                 device.longName = String(longNameBytes)
@@ -182,8 +243,8 @@ class RealBleService : IBleService {
             
             // Read DCC code
             val dccCodeBytes = peripheral.read(
-                BleConstants.SERVICE_UUID.toString(),
-                BleConstants.DCC_CODE_CHARACTERISTIC_UUID.toString()
+                BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                    BluetoothUUID(BleConstants.DCC_CODE_CHARACTERISTIC_UUID.toString())
             )
             if (dccCodeBytes.isNotEmpty()) {
                 val buffer = ByteBuffer.wrap(dccCodeBytes).order(ByteOrder.LITTLE_ENDIAN)
@@ -192,8 +253,8 @@ class RealBleService : IBleService {
             
             // Read speed
             val speedBytes = peripheral.read(
-                BleConstants.SERVICE_UUID.toString(),
-                BleConstants.SPEED_CHARACTERISTIC_UUID.toString()
+                BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                BluetoothUUID(BleConstants.SPEED_CHARACTERISTIC_UUID.toString())
             )
             if (speedBytes.isNotEmpty()) {
                 device.speed = speedBytes[0].toInt() and 0xFF
@@ -201,8 +262,8 @@ class RealBleService : IBleService {
             
             // Read acceleration
             val accelerationBytes = peripheral.read(
-                BleConstants.SERVICE_UUID.toString(),
-                BleConstants.ACCELERATION_CHARACTERISTIC_UUID.toString()
+                BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                BluetoothUUID(BleConstants.ACCELERATION_CHARACTERISTIC_UUID.toString())
             )
             if (accelerationBytes.isNotEmpty()) {
                 device.acceleration = accelerationBytes[0].toInt()
@@ -210,17 +271,18 @@ class RealBleService : IBleService {
             
             // Read direction
             val directionBytes = peripheral.read(
-                BleConstants.SERVICE_UUID.toString(),
-                BleConstants.DIRECTION_CHARACTERISTIC_UUID.toString()
-            )
+                BluetoothUUID(
+                    BleConstants.SERVICE_UUID.toString()),
+                BluetoothUUID(BleConstants.DIRECTION_CHARACTERISTIC_UUID.toString())
+                )
             if (directionBytes.isNotEmpty()) {
                 device.direction = String(directionBytes)
             }
             
             // Read network key
             val networkKeyBytes = peripheral.read(
-                BleConstants.SERVICE_UUID.toString(),
-                BleConstants.NETWORK_KEY_CHARACTERISTIC_UUID.toString()
+                BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                BluetoothUUID(BleConstants.NETWORK_KEY_CHARACTERISTIC_UUID.toString())
             )
             if (networkKeyBytes.isNotEmpty()) {
                 device.networkKey = String(networkKeyBytes)
@@ -241,11 +303,10 @@ class RealBleService : IBleService {
             try {
                 // Write speed characteristic
                 val speedBytes = byteArrayOf(validSpeed.toByte())
-                peripheral.write(
-                    BleConstants.SERVICE_UUID.toString(),
-                    BleConstants.SPEED_CHARACTERISTIC_UUID.toString(),
-                    speedBytes,
-                    false // Write without response
+                peripheral.writeRequest( // Write without response
+                    BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                    BluetoothUUID(BleConstants.SPEED_CHARACTERISTIC_UUID.toString()),
+                    speedBytes
                 )
                 
                 // Update device
@@ -269,11 +330,10 @@ class RealBleService : IBleService {
             try {
                 // Write acceleration characteristic
                 val accelBytes = byteArrayOf(validAccel.toByte())
-                peripheral.write(
-                    BleConstants.SERVICE_UUID.toString(),
-                    BleConstants.ACCELERATION_CHARACTERISTIC_UUID.toString(),
+                peripheral.writeRequest(
+                    BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                    BluetoothUUID(BleConstants.ACCELERATION_CHARACTERISTIC_UUID.toString()),
                     accelBytes,
-                    false // Write without response
                 )
                 
                 // Update device
@@ -296,11 +356,10 @@ class RealBleService : IBleService {
             try {
                 // Write direction characteristic
                 val directionBytes = direction.toByteArray()
-                peripheral.write(
-                    BleConstants.SERVICE_UUID.toString(),
-                    BleConstants.DIRECTION_CHARACTERISTIC_UUID.toString(),
+                peripheral.writeRequest(
+                    BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                    BluetoothUUID(BleConstants.DIRECTION_CHARACTERISTIC_UUID.toString()),
                     directionBytes,
-                    false // Write without response
                 )
                 
                 // Update device
@@ -324,11 +383,10 @@ class RealBleService : IBleService {
             try {
                 // Write long name characteristic
                 val longNameBytes = validLongName.toByteArray()
-                peripheral.write(
-                    BleConstants.SERVICE_UUID.toString(),
-                    BleConstants.LONG_NAME_CHARACTERISTIC_UUID.toString(),
+                peripheral.writeRequest(
+                    BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                    BluetoothUUID(BleConstants.LONG_NAME_CHARACTERISTIC_UUID.toString()),
                     longNameBytes,
-                    true // Write with response
                 )
                 
                 // Update device
@@ -351,11 +409,10 @@ class RealBleService : IBleService {
             try {
                 // Write network key characteristic
                 val networkKeyBytes = networkKey.toByteArray()
-                peripheral.write(
-                    BleConstants.SERVICE_UUID.toString(),
-                    BleConstants.NETWORK_KEY_CHARACTERISTIC_UUID.toString(),
-                    networkKeyBytes,
-                    true // Write with response
+                peripheral.writeCommand( // Write with response
+                    BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                        BluetoothUUID(BleConstants.NETWORK_KEY_CHARACTERISTIC_UUID.toString()),
+                    networkKeyBytes
                 )
                 
                 // Update device
@@ -378,9 +435,10 @@ class RealBleService : IBleService {
         
         try {
             // Set up notification callback
-            peripheral.setNotifyCallback(
-                BleConstants.SERVICE_UUID.toString(),
-                BleConstants.SPEED_CHARACTERISTIC_UUID.toString()
+            // and Enable notifications
+            peripheral.notify(
+                BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                BluetoothUUID(BleConstants.SPEED_CHARACTERISTIC_UUID.toString())
             ) { data ->
                 if (data.isNotEmpty()) {
                     val speed = data[0].toInt() and 0xFF
@@ -389,14 +447,7 @@ class RealBleService : IBleService {
                     updateDeviceLists(device)
                 }
             }
-            
-            // Enable notifications
-            peripheral.notifyCharacteristic(
-                BleConstants.SERVICE_UUID.toString(),
-                BleConstants.SPEED_CHARACTERISTIC_UUID.toString(),
-                true
-            )
-            
+
             isNotifying = true
             currentDeviceAddress = device.address
         } catch (e: Exception) {
@@ -412,10 +463,9 @@ class RealBleService : IBleService {
         
         try {
             // Disable notifications
-            peripheral.notifyCharacteristic(
-                BleConstants.SERVICE_UUID.toString(),
-                BleConstants.SPEED_CHARACTERISTIC_UUID.toString(),
-                false
+            peripheral.unsubscribe(
+                BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
+                BluetoothUUID(BleConstants.SPEED_CHARACTERISTIC_UUID.toString()),
             )
             
             isNotifying = false
