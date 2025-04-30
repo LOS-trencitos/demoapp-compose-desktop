@@ -32,11 +32,12 @@ import kotlinx.coroutines.launch
 import model.BleDevice
 import service.IBleService
 import service.BleServiceFactory
+import java.io.Closeable
 
 @Composable
 @Preview
 fun App() {
-    val bleService = remember { BleServiceFactory.createBleService() }
+    val bleService = remember { BleServiceFactory.createBleService(useSimulation = false) }
     val coroutineScope = rememberCoroutineScope()
 
     // State flows
@@ -47,6 +48,11 @@ fun App() {
     // Start scanning for devices
     LaunchedEffect(Unit) {
         bleService.startScanning()
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            bleService.stopScanning()
+        }
     }
 
     MaterialTheme {

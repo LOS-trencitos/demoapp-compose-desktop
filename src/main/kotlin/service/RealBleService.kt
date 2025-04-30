@@ -98,21 +98,26 @@ class RealBleService : IBleService {
     inner class scanCallbacks: Adapter.EventListener{
         override fun onScanStart() {
             //TODO("Not yet implemented")
+            println("Scan started")
         }
 
         override fun onScanStop() {
             //TODO("Not yet implemented")
+            println("Scan stopped")
         }
 
         override fun onScanUpdated(peripheral: Peripheral?) {
             //TODO("Not yet implemented")
+            println("Scan updated")
         }
 
         override fun onScanFound(peripheral: Peripheral) {
             // Check if the peripheral has the required service
             if (peripheral == null) {return}
             val services = peripheral.services()
-            if (services.stream().anyMatch { it.uuid() == BleConstants.SERVICE_UUID.toString() })
+            if (services.stream().anyMatch {
+                it.uuid() == BleConstants.SERVICE_UUID.toString() }
+                )
              {
                 val address = peripheral.getAddress()
                  val addressStr = address.toString()
@@ -155,7 +160,8 @@ class RealBleService : IBleService {
         // Start scanning
         coroutineScope.launch {
             try {
-                adapter.scanFor(0) // Scan indefinitely
+                // adapter.scanFor(3000)
+                adapter.scanStart()// Scan indefinitely
             } catch (e: Exception) {
                 println("Error scanning for devices: ${e.message}")
             }
