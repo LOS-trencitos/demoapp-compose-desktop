@@ -1,13 +1,18 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.internal.de.undercouch.gradle.tasks.download.Download
+
+val simplejavable_version = "v0.9.1"
 
 plugins {
     kotlin("jvm")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
+    id ("de.undercouch.download") version "5.6.0"
 }
 
 group = "com.example"
 version = "1.0-SNAPSHOT"
+
 
 repositories {
     mavenCentral()
@@ -15,6 +20,12 @@ repositories {
     google()
     maven("https://jitpack.io")
 }
+
+tasks.register<Download>("downloadBLE") {
+    src("https://github.com/simpleble/simpleble/releases/download/$simplejavable_version/simplejavable-$simplejavable_version.jar")
+    dest(layout.projectDirectory)
+}
+
 
 dependencies {
     // Note, if you develop a library, you should use compose.desktop.common.
@@ -27,8 +38,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.7.3")
 
-    // SimpleJavaBLE
-    implementation(files("/Users/alex/Code/Libs/simpleble/simplejavable/java/build/libs/simplejavable-v0.9.1.jar"))
+    // SimpleJavaBLE -
+    implementation(files("simplejavable-$simplejavable_version.jar"))
     //implementation("com.github.simpleble:simpleble:main-SNAPSHOT")
 }
 
