@@ -364,6 +364,23 @@ fun DeviceControls(
                 )
             }
 
+                // STOP  direction button
+                Button(
+                    onClick = { onDirectionChange(BleDevice.DIRECTION_STOP) },
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = if (device.direction == BleDevice.DIRECTION_STOP)
+                            MaterialTheme.colors.primary else Color.Gray
+                    ),
+                    modifier = Modifier.size(60.dp),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = "STOP",
+                        fontSize = 24.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
             // Right direction button
             Button(
                 onClick = { onDirectionChange(BleDevice.DIRECTION_RIGHT) },

@@ -36,7 +36,7 @@ data class BleDevice(
         // Direction constants
         const val DIRECTION_STOP = "00"
         const val DIRECTION_RIGHT = "01"
-        const val DIRECTION_LEFT = "10"
+        const val DIRECTION_LEFT = "02"
         
         // Limits
         const val MAX_SPEED = 128

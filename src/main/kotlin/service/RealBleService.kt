@@ -361,7 +361,8 @@ class RealBleService : IBleService {
         coroutineScope.launch {
             try {
                 // Write direction characteristic
-                val directionBytes = direction.toByteArray()
+                val directionBytes =
+                ByteArray(1) { direction.toUInt().toByte() }
                 peripheral.writeRequest(
                     BluetoothUUID(BleConstants.SERVICE_UUID.toString()),
                     BluetoothUUID(BleConstants.DIRECTION_CHARACTERISTIC_UUID.toString()),
